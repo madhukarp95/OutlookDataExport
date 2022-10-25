@@ -2,18 +2,14 @@
 using Microsoft.Office.Interop.Excel;
 using Microsoft.Office.Interop.Outlook;
 using OutlookExport.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace OutlookExport.Services
 {
     public abstract class BaseService<T>
     {
         private readonly ILogger<BaseService<T>> _logger;
+        
         public BaseService(ILogger<BaseService<T>> logger)
         {
             _logger = logger;
@@ -102,9 +98,9 @@ namespace OutlookExport.Services
             return MaskEmail(smtpAddress);
         }
 
-        public void IncrementLog(string MailType, int index, int total)
+        internal int GetItemsCount(int UserSelected, int TotalCount)
         {
-            _logger.LogInformation("Reading {Type} Item - {counter} of {count}", MailType, index, total);
+            return Math.Min(UserSelected, TotalCount);
         }
     }
 }

@@ -20,6 +20,8 @@ using IHost host = Host.CreateDefaultBuilder()
         var configurationRoot = context.Configuration;
         services.Configure<ConfigOptions>(
             configurationRoot.GetSection(nameof(ConfigOptions)));
+        services.Configure<FolderCount>(
+                    configurationRoot.GetSection(nameof(FolderCount)));
     })
     .ConfigureLogging(builder => builder.ClearProviders())
     .UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration))

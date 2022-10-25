@@ -1,10 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Office.Interop.Excel;
 using Microsoft.Office.Interop.Outlook;
 using OutlookExport.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -13,9 +15,11 @@ namespace OutlookExport.Services
     public class SentItemService : BaseService<SentMailModel>
     {
         private readonly ILogger<SentItemService> _logger;
-        public SentItemService(ILogger<SentItemService> logger) : base(logger)
+        private readonly FolderCount _folderCountOptions;
+        public SentItemService(ILogger<SentItemService> logger, IOptions<FolderCount> folderCountOptions) : base(logger)
         {
             _logger = logger;
+            _folderCountOptions = folderCountOptions.Value;
         }
         public override void CreateWorkSheet(MAPIFolder myItems, ref Worksheet worksheet)
         {
@@ -25,19 +29,20 @@ namespace OutlookExport.Services
             if (myItems.Items.Count > 0)
             {
                 List<SentMailModel> sentMailModelList = new();
-
+                int itemCount = GetItemsCount(myItems.Items.Count, _folderCountOptions.InboxItems);
                 try
                 {
-                    for (int j = 1; j <= myItems.Items.Count; j++)
+                    for (int j = 1; j <= itemCount; j++)
                     {
-                        IncrementLog("SentMail", j, myItems.Items.Count);
+                        _logger.LogInformation(Logger.InformationLog, "SentMail", j, myItems.Items.Count);
 
-                        if (myItems.Items[j] is MailItem)
+                        if (myItems.Items[j] is MailItem outlookXcell)
                         {
-                            var outlookXcell = ((MailItem)myItems.Items[j]);
-
                             if (outlookXcell.MessageClass == RECALL || outlookXcell.Sent == false)
+                            {
+                                Marshal.ReleaseComObject(outlookXcell);
                                 continue;
+                            }
 
                             SentMailModel sentMailModel = new();
 
@@ -51,9 +56,12 @@ namespace OutlookExport.Services
                             sentMailModel.MailBody = outlookXcell.Body;
 
                             sentMailModelList.Add(sentMailModel);
-                        }
 
-                        if (j == 10) break;
+                            if (outlookXcell != null)
+                            {
+                                Marshal.ReleaseComObject(outlookXcell);
+                            }
+                        }
                     }
 
                     _logger.LogInformation("Adding Sent mail items to worksheet");
@@ -65,6 +73,13 @@ namespace OutlookExport.Services
                 catch (System.Exception ex)
                 {
                     _logger.LogError(ex, "Sorry some error occurred");
+                }
+                finally
+                {
+                    if (myItems != null)
+                    {
+                        Marshal.ReleaseComObject(myItems);
+                    }
                 }
             }
         }

@@ -20,7 +20,7 @@ namespace OutlookExport
         private readonly InboxService _inboxService;
         private readonly CalendarService _calendarService;
         private readonly SentItemService _sentItemService;
-        private ILogger<ProcessReport> _logger;
+        private readonly ILogger<ProcessReport> _logger;
 
         public ProcessReport(IOptions<ConfigOptions> options,
             ILogger<ProcessReport> logger,
@@ -39,21 +39,23 @@ namespace OutlookExport
         {
             _logger.LogInformation("Export Process Started");
 
-            Microsoft.Office.Interop.Excel.Application app = null;
+            Microsoft.Office.Interop.Excel.Application excelApp = null;
             Workbook workbook = null;
 
+            Microsoft.Office.Interop.Outlook.Application outlookApp = null;
+            NameSpace mapiNameSpace = null;
             try
             {
-                Microsoft.Office.Interop.Outlook.Application myApp = new();
-                NameSpace mapiNameSpace = myApp.GetNamespace("MAPI");
+                outlookApp = new();
+                mapiNameSpace = outlookApp.GetNamespace("MAPI");
                 MAPIFolder myInbox = mapiNameSpace.GetDefaultFolder(OlDefaultFolders.olFolderInbox);
 
                 MAPIFolder myCalendar = mapiNameSpace.GetDefaultFolder(OlDefaultFolders.olFolderCalendar);
 
                 MAPIFolder mySentItems = mapiNameSpace.GetDefaultFolder(OlDefaultFolders.olFolderSentMail);
 
-                app = new();
-                workbook = app.Workbooks.Add(XlWBATemplate.xlWBATWorksheet);
+                excelApp = new();
+                workbook = excelApp.Workbooks.Add(XlWBATemplate.xlWBATWorksheet);
                 workbook.Worksheets.Add();
                 workbook.Worksheets.Add();
 
@@ -86,7 +88,8 @@ namespace OutlookExport
                 }
 
                 workbook.Close();
-                app.Quit();
+                excelApp.Quit();
+                outlookApp.Quit();
             }
             catch (Exception ex)
             {
@@ -96,13 +99,15 @@ namespace OutlookExport
             finally
             {
                 if (workbook != null) Marshal.ReleaseComObject(workbook);
-                if (app != null) Marshal.ReleaseComObject(app);
+                if (excelApp != null) Marshal.ReleaseComObject(excelApp);
+                if(mapiNameSpace != null) Marshal.ReleaseComObject(mapiNameSpace);
+                if (outlookApp != null) Marshal.ReleaseComObject(outlookApp);
             }
 
             return;
         }
 
-        private void SaveReport(Workbook workbook)
+        private static void SaveReport(Workbook workbook)
         {
             string sTemplatePath = AppDomain.CurrentDomain.BaseDirectory;
             string reportDateTime = DateTime.Now.ToString("yyyy-dd-M--HH-mm-ss");
@@ -121,7 +126,7 @@ namespace OutlookExport
                 {
                     string columnName = worksheet.Columns[i].Address;
 
-                    Regex reg = new Regex(@"(\$)(\w*):");
+                    Regex reg = new(@"(\$)(\w*):");
                     if (reg.IsMatch(columnName))
                     {
                         Match match = reg.Match(columnName);

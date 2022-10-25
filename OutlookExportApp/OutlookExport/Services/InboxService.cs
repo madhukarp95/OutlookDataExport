@@ -4,17 +4,21 @@ using Microsoft.Office.Interop.Excel;
 using Microsoft.Office.Interop.Outlook;
 using OutlookExport.Models;
 using Serilog.Core;
+using System.Runtime.InteropServices;
 
 namespace OutlookExport.Services
 {
-    public class InboxService : BaseService<SentMailModel>
+    public class InboxService : BaseService<InboxModel>
     {
         private readonly ConfigOptions _options;
+        private readonly FolderCount _folderCountOptions;
         private readonly ILogger<InboxService> _logger;
         public InboxService(IOptions<ConfigOptions> options,
+            IOptions<FolderCount> folderCountOptions,
             ILogger<InboxService> logger) : base(logger)
         {
             _options = options.Value;
+            _folderCountOptions = folderCountOptions.Value;
             _logger = logger;
         }
 
@@ -25,22 +29,27 @@ namespace OutlookExport.Services
 
             if (myItems.Items.Count > 0)
             {
-                List<SentMailModel> inboxModelList = new();
+                int itemCount = GetItemsCount(myItems.Items.Count, _folderCountOptions.InboxItems);
+
+                List<InboxModel> inboxModelList = new();
 
                 try
                 {
-                    for (int j = 1; j <= myItems.Items.Count; j++)
+                    for (int j = 1; j <= itemCount; j++)
                     {
-                        IncrementLog("Inbox", j, myItems.Items.Count);
+                        _logger.LogInformation(Logger.InformationLog, "Inbox", j, myItems.Items.Count);
 
-                        if (myItems.Items[j] is MailItem)
+                        if (myItems.Items[j] is MailItem outlookXcell)
                         {
-                            var outlookXcell = ((MailItem)myItems.Items[j]);
 
+                            // TODO: Need to decide to either Allow or Ignore, Currenly being ignored
                             if (outlookXcell.MessageClass == RECALL || outlookXcell.Sent == false)
+                            {
+                                Marshal.ReleaseComObject(outlookXcell);
                                 continue;
-
-                            SentMailModel inboxModel = new();
+                            }
+                            
+                            InboxModel inboxModel = new();
 
                             inboxModel.Subject = outlookXcell.Subject;
                             inboxModel.MailBody = outlookXcell.Body;
@@ -54,6 +63,11 @@ namespace OutlookExport.Services
                             inboxModel.CreatedTime = outlookXcell.CreationTime;
 
                             inboxModelList.Add(inboxModel);
+
+                            if (outlookXcell != null)
+                            {
+                                Marshal.ReleaseComObject(outlookXcell);
+                            }
                         }
                     }
 
@@ -66,6 +80,13 @@ namespace OutlookExport.Services
                 catch (System.Exception ex)
                 {
                     _logger.LogError(ex, "Sorry some error occurred");
+                }
+                finally
+                {
+                    if(myItems != null)
+                    {
+                        Marshal.ReleaseComObject(myItems);
+                    }
                 }
             }
         }
@@ -91,11 +112,11 @@ namespace OutlookExport.Services
             worksheet.Cells[1, columnIndex++] = "CreatedTime";
         }
 
-        public override void UpdateRows(List<SentMailModel> inboxModelList, ref Worksheet worksheet)
+        public override void UpdateRows(List<InboxModel> inboxModelList, ref Worksheet worksheet)
         {
             int xlrow = 2;
 
-            foreach (SentMailModel inboxModel in inboxModelList)
+            foreach (InboxModel inboxModel in inboxModelList)
             {
                 int i = 1;
                 worksheet.Cells[xlrow, i++] = inboxModel.Subject;

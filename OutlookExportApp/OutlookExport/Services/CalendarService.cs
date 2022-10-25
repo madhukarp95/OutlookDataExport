@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Office.Interop.Excel;
 using Microsoft.Office.Interop.Outlook;
 using OutlookExport.Models;
+using System.Runtime.InteropServices;
 using Exception = System.Exception;
 
 namespace OutlookExport.Services
@@ -9,9 +11,11 @@ namespace OutlookExport.Services
     public class CalendarService : BaseService<CalendarModel>
     {
         private readonly ILogger<CalendarService> _logger;
-        public CalendarService(ILogger<CalendarService> logger) : base(logger)
+        private readonly FolderCount _folderCountOptions;
+        public CalendarService(ILogger<CalendarService> logger, IOptions<FolderCount> folderCountOptions) : base(logger)
         {
             _logger = logger;
+            _folderCountOptions = folderCountOptions.Value;
         }
 
         public override void CreateWorkSheet(MAPIFolder myItems, ref Worksheet worksheet)
@@ -24,15 +28,21 @@ namespace OutlookExport.Services
             {
                 List<CalendarModel> calendarModelList = new();
 
+                int itemCount = GetItemsCount(myItems.Items.Count, _folderCountOptions.InboxItems);
+
                 try
                 {
-                    for (int j = 1; j <= myItems.Items.Count; j++)
+                    for (int j = 1; j <= itemCount; j++)
                     {
-                        IncrementLog("Calendar", j, myItems.Items.Count);
+                        _logger.LogInformation(Logger.InformationLog, "Calendar", j, myItems.Items.Count);
 
-                        if (myItems.Items[j] is AppointmentItem)
+                        if (myItems.Items[j] is AppointmentItem outlookXcell)
                         {
-                            var outlookXcell = ((AppointmentItem)myItems.Items[j]);
+                            if (outlookXcell.MessageClass == RECALL)
+                            {
+                                Marshal.ReleaseComObject(outlookXcell);
+                                continue;
+                            }
 
                             CalendarModel calendarModel = new();
                             calendarModel.Subject = outlookXcell.Subject;
@@ -47,14 +57,24 @@ namespace OutlookExport.Services
                             calendarModel.Location = outlookXcell.Location;
                             calendarModel.CreatedTime = outlookXcell.CreationTime;
                             calendarModelList.Add(calendarModel);
-                        }
 
-                        if (j == 10) break;
+                            if(outlookXcell != null)
+                            {
+                                Marshal.ReleaseComObject(outlookXcell);
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Sorry some error occurred");
+                }
+                finally
+                {
+                    if (myItems != null)
+                    {
+                        Marshal.ReleaseComObject(myItems);
+                    }
                 }
 
                 _logger.LogInformation("Adding Calendar items to worksheet");

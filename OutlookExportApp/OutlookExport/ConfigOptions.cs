@@ -14,4 +14,11 @@ namespace OutlookExport
 
         public List<string> SentItemColumns { get; set; }
     }
+
+    public class FolderCount
+    {
+        public int InboxItems { get; set; }
+        public int CalendarItems { get; set; }
+        public int SentItems { get; set; }
+    }
 }
