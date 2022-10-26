@@ -88,7 +88,6 @@ namespace OutlookExport
 
                 workbook.Close();
                 excelApp.Quit();
-                outlookApp.Quit();
             }
             catch (Exception ex)
             {
