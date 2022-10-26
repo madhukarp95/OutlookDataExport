@@ -83,7 +83,6 @@ namespace OutlookExport
                 {
 
                     Worksheet sheet = workbook.Sheets.Item[i];
-                    Console.WriteLine(sheet.Name);
                     if (sheet != null) Marshal.ReleaseComObject(sheet);
                 }
 
