@@ -29,7 +29,7 @@ namespace OutlookExport.Services
             if (myItems.Items.Count > 0)
             {
                 List<SentMailModel> sentMailModelList = new();
-                int itemCount = GetItemsCount(myItems.Items.Count, _folderCountOptions.InboxItems);
+                int itemCount = GetItemsCount(myItems.Items.Count, _folderCountOptions.SentItems);
                 try
                 {
                     for (int j = 1; j <= itemCount; j++)

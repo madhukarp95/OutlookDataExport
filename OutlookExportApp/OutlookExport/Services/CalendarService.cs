@@ -28,7 +28,7 @@ namespace OutlookExport.Services
             {
                 List<CalendarModel> calendarModelList = new();
 
-                int itemCount = GetItemsCount(myItems.Items.Count, _folderCountOptions.InboxItems);
+                int itemCount = GetItemsCount(myItems.Items.Count, _folderCountOptions.CalendarItems);
 
                 try
                 {
